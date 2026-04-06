@@ -65,6 +65,11 @@ public class FileManager {
 		// hash the replica
 		
 		// store the hash in the replicafiles array.
+		
+		for (int i = 0; i < numReplicas; i++) {
+	        String replicaName = filename + i;
+	        replicafiles[i] = Hash.hashOf(replicaName);
+	    }
 	}
 	
     /**
@@ -97,6 +102,22 @@ public class FileManager {
     	// call the saveFileContent() on the successor and set isPrimary=true if logic above is true otherwise set isPrimary=false
     	
     	// increment counter
+    	
+    	createReplicaFiles();
+        
+        for (int i = 0; i < replicafiles.length; i++) {
+            BigInteger replica = replicafiles[i];
+            NodeInterface successor = chordnode.findSuccessor(replica);
+            
+            if (successor != null) {
+                successor.addKey(replica);
+                
+                boolean isPrimary = (i == index);
+                successor.saveFileContent(filename, replica, bytesOfFile, isPrimary);
+                
+                counter++;
+            }
+        }
 		return counter;
     }
 	
@@ -123,6 +144,18 @@ public class FileManager {
 		
 		// save the metadata in the set activeNodesforFile.
 		
+		createReplicaFiles();
+
+	    for (BigInteger replica : replicafiles) {
+	        NodeInterface successor = chordnode.findSuccessor(replica);
+	        if (successor != null) {
+	            Message metadata = successor.getFilesMetadata(replica);
+	            if (metadata != null) {
+	                activeNodesforFile.add(metadata);
+	            }
+	        }
+	    }
+		
 		return activeNodesforFile;
 	}
 	
@@ -141,6 +174,12 @@ public class FileManager {
 		// use the primaryServer boolean variable contained in the Message class to check if it is the primary or not
 		
 		// return the primary when found (i.e., use Util.getProcessStub to get the stub and return it)
+		
+		for (Message m : activeNodesforFile) {
+	        if (m.isPrimaryServer()) {
+	            return Util.getProcessStub(m.getNodeName(), m.getPort());
+	        }
+	    }
 		
 		return null; 
 	}
